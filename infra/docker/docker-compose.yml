@@ -1,0 +1,106 @@
+# Huly + Ollama (Gemma 4) Docker Compose 構成
+#
+# 使い方:
+#   cp ../../.env.example .env  # 環境変数を設定
+#   docker compose up -d
+#
+# サービス一覧:
+#   - ollama    : Gemma 4 を動かす LLM ランタイム (port 11434)
+#   - huly-front: Huly フロントエンド (port 8083)
+#   - huly-back : Huly バックエンド
+#   - mongodb   : Huly が使用する MongoDB
+#
+# 注意:
+#   - Huly の正式な docker-compose.yml は以下を参照してください:
+#     https://github.com/hcengineering/huly/blob/main/docker-compose.yml
+#   - 本ファイルはそれをベースにした雛形です。本番環境では公式版を使用してください。
+
+name: huly-gemma4
+
+services:
+  # ----------------------------------------------------------------
+  # Ollama — Gemma 4 LLM ランタイム
+  # ----------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    # GPU を使用する場合は以下のコメントアウトを外してください
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------
+  # MongoDB — Huly のデータストア
+  # ----------------------------------------------------------------
+  mongodb:
+    image: mongo:7
+    container_name: huly-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-huly}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD is required}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ----------------------------------------------------------------
+  # Huly バックエンド
+  # (詳細は https://github.com/hcengineering/huly を参照)
+  # ----------------------------------------------------------------
+  huly-back:
+    image: hardcoreeng/huly:latest
+    container_name: huly-back
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MONGO_URL=mongodb://${MONGO_USERNAME:-huly}:${MONGO_PASSWORD}@mongodb:27017
+      - SECRET=${HULY_SECRET:?HULY_SECRET is required}
+      # Gemma 4 (Ollama) API エンドポイント
+      - AI_API_URL=http://ollama:11434
+      - AI_MODEL=${AI_MODEL:-gemma4:4b}
+    volumes:
+      - huly_uploads:/uploads
+
+  # ----------------------------------------------------------------
+  # Huly フロントエンド
+  # ----------------------------------------------------------------
+  huly-front:
+    image: hardcoreeng/front:latest
+    container_name: huly-front
+    restart: unless-stopped
+    depends_on:
+      - huly-back
+    ports:
+      - "${HULY_PORT:-8083}:8083"
+    environment:
+      - BACK_URL=http://huly-back:3000
+      - UPLOAD_URL=http://huly-back:3000/upload
+
+volumes:
+  ollama_data:
+  mongodb_data:
+  huly_uploads:

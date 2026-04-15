@@ -1,0 +1,12 @@
+{
+  "name": "huly-gemma4-zenn",
+  "version": "0.1.0",
+  "description": "Zenn CLI — Gemma 4 × Huly 構築ログ",
+  "private": true,
+  "scripts": {
+    "preview": "zenn preview"
+  },
+  "dependencies": {
+    "zenn-cli": "^0.1.154"
+  }
+}

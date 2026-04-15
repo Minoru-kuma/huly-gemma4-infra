@@ -1,0 +1,38 @@
+# 依存関係
+node_modules/
+
+# 環境変数・シークレット
+.env
+.env.*
+!.env.example
+
+# ビルド成果物
+dist/
+.output/
+out/
+
+# Slidev
+slides/dist/
+slides/.slidev/
+
+# Zenn CLI
+zenn/.cache/
+
+# OS 生成ファイル
+.DS_Store
+Thumbs.db
+
+# エディタ設定
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ログ
+*.log
+npm-debug.log*
+
+# Slurm ジョブ出力
+*.out
+*.err
+slurm-*.out
